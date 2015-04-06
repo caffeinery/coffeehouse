@@ -38,13 +38,24 @@ function createClient(init) {
   };
 }
 
+var client = null;
 var messages = {};
 var currentNetwork = "0";
 var currentChannel = "#test";
 
-function addChannel(channel) {
-  var newItem = $('<a id="' + channel.network + '_' + channel.name.replace('#', '_') + '" class="item">' + channel.name + '<div class="ui label">1</div></a>');
+function addNetwork(network) {
+  var newItem = $('<a id="' + network + '_main" class="item network">' + network + '<div class="ui label">1</div></a>');
   newItem.insertBefore("#menu .item.search");
+  newItem.click(function () {
+    switchChannel(network, 'main');
+  });
+  addMessage(network, 'main', {color: 'teal'}, 'Connected to network.');
+}
+
+function addChannel(channel) {
+  if (!$("#menu #" + channel.network + "_main").length) addNetwork(channel.network);
+  var newItem = $('<a id="' + channel.network + '_' + channel.name.replace('#', '_') + '" class="item buffer">' + channel.name + '<div class="ui label">1</div></a>');
+  newItem.insertAfter("#menu #" + channel.network + "_main");
   newItem.click(function () {
     switchChannel(channel.network, channel.name);
   });
@@ -67,6 +78,7 @@ function refreshMessages() {
       htmlMessages.append($('<li>').text(msg[0] + ': ' + msg[1]));
     }
   });
+  $('.messagebox').scrollTop($('.messagebox')[0].scrollHeight);
 }
 
 function addMessage(network, channel, nick, message) {
@@ -90,13 +102,67 @@ function deactivateItem(item) {
 function switchChannel(network, channel) {
   currentNetwork = network;
   currentChannel = channel;
-  deactivateItem($('.item'));
+  deactivateItem($('.bufferbox .item'));
   activateItem($('#' + currentNetwork + '_' + currentChannel.replace('#', '_')));
   refreshMessages();
+  if (channel === "main") $('.userbox').empty();
+  else refreshUserlist();
 }
 
+function renderUserlist(names) {
+  $('.userbox').empty();
+  ['~', '@', '%', '+', ''].forEach(function (rank) {
+    var rankTitle;
+    var rankSign = '(' + rank + ')';
+    switch (rank) {
+      case "~":
+        rankTitle = "Owner";
+        rankColor = "yellow";
+        break;
+      case "@":
+        rankTitle = "Ops";
+        rankColor = "red";
+        break;
+      case "%":
+        rankTitle = "Half-Ops";
+        rankColor = "orange";
+        break;
+      case "+":
+        rankTitle = "Voiced";
+        rankColor = "green";
+        break;
+      default:
+        rankTitle = "Members";
+        rankColor = "blue";
+        rankSign = '';
+        break;
+    }
+    if (names[rank]) {
+      $('.userbox').append('<div id="userlist_rank_' + rankTitle + '" class="item">' + rankTitle + ' <small>' + rankSign + '</small><div class="ui ' + rankColor + ' label">' + names[rank].length + '</div><div class="menu"></div></div>');
+      var menu = $('#userlist_rank_' + rankTitle + ' .menu');
+      names[rank].sort();
+      names[rank].forEach(function (user) {
+        menu.append('<a class="item">' + user + '</a>');
+      });
+    }
+  });
+}
+
+function refreshUserlist() {
+  client.call('names', [currentChannel, currentNetwork]);
+}
+
+function adjustHeight() {
+  $('.messagebox').height($(window).height() - 100);
+}
+
+$(window).resize(function () {
+  adjustHeight();
+});
+
 $(document).ready(function () {
-  var client = createClient({'relayid': 114, 'host': 'irc.thepups.net'});
+  adjustHeight();
+  client = createClient({'relayid': 114, 'host': 'irc.thepups.net'});
 
   client.on('message', function (err, event) {
     addMessage(event.channel.network, event.channel.name, event.user.nick, event.message);
@@ -113,11 +179,40 @@ $(document).ready(function () {
     removeChannel(event.channel);
   });
 
-  $('#m').keyup(function (e) {
+  client.on('nick', function (err, event) {
+    addMessage(event.network, currentChannel, {color: 'green'}, event.oldNick + ' is now known as ' + event.user.nick);
+    refreshMessages();
+  });
+
+  client.on('names', function (err, event) {
+    var names = {};
+    for (var name in event.names) {
+      if (event.names.hasOwnProperty(name)) {
+        var data = event.names[name];
+        if (data.length > 0) {
+          var tag = data[0];
+          if (!names[tag]) names[tag] = [];
+          names[tag].push(name);
+        } else {
+          if (!names[""]) names[""] = [];
+          names[""].push(name);
+        }
+      }
+    }
+    renderUserlist(names);
+  });
+
+  var m = $('#m');
+  m.keyup(function (e) {
     if (e.keyCode == 13) { // enter key
-      var args = parseCommand($('#m').val(), true);
-      client.call(args.shift(), args);
-      $('#m').val('');
+      var msg = m.val();
+      if (msg.charAt(0) === '/') {
+        var args = parseCommand(msg.substring(1), true);
+        client.call(args.shift(), args);
+      } else {
+        client.call('send', [currentChannel, msg, currentNetwork]);
+      }
+      m.val('');
       return false;
     }
   });

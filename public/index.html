@@ -22,9 +22,9 @@
   <body>
 
     <div class="ui grid">
-      <div class="row">
-        <div class="three wide column">
-          <div id="menu" class="ui vertical menu">
+      <div class="row fullheight">
+        <div class="three wide column buffercolumn">
+          <div id="menu" class="ui vertical menu bufferbox">
             <a class="active teal item">
               Inbox
               <div class="ui teal label">1</div>
@@ -37,18 +37,18 @@
             </div>
           </div>
         </div>
-        <div class="ten wide column">
+        <div class="ten wide column messagecolumn">
           <div class="ui form segment">
-            <div class="field">
+            <div class="field messagebox">
               <ul id="messages"</ul>
             </div>
-            <div class="field">
+            <div class="field inputbox">
               <input type="text" id="m" autocomplete="off" />
             </div>
           </div>
         </div>
-        <div class="three wide column">
-          <!-- User list -->
+        <div class="three wide column usercolumn">
+          <div class="ui vertical menu userbox"></div>
         </div>
       </div>
     </div>

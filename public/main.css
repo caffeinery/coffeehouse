@@ -1,3 +1,57 @@
-#messages { list-style-type: none; margin: 0; padding: 0; }
-#messages li { padding: 5px 10px; }
-#messages li:nth-child(odd) { background: #eee; }
+html, body {
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
+#messages {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+#messages li {
+  padding: 5px 10px;
+}
+
+#messages li:nth-child(odd) {
+  background: #eee;
+}
+
+.bufferbox .item.buffer {
+  padding-left: 25px;
+}
+
+.buffercolumn {
+  margin-right: -20px;
+}
+
+.usercolumn {
+  float: right;
+  margin-right: -22px;
+}
+
+.messagecolumn {
+  margin-left: 20px;
+}
+
+.row.fullheight {
+  height: 100%;
+}
+
+.row.fullheight .column {
+  height: 100%;
+}
+
+.row.fullheight .column .segment {
+  height: 100%;
+}
+
+.row.fullheight .column .segment .messagebox {
+  height: 90vh;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
+.userbox .item .item {
+  padding: 3px;
+}
