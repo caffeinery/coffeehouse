@@ -1,5 +1,5 @@
 {
-  "name": "coffea-bnc",
+  "name": "coffeehouse",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
@@ -8,9 +8,9 @@
     "start": "node server.js"
   },
   "author": "",
-  "license": "ISC",
+  "license": "BSD",
   "dependencies": {
-    "coffea": "^0.4.1",
+    "coffea": "^0.4.2",
     "express": "^4.12.3",
     "socket.io": "^1.3.5"
   }
