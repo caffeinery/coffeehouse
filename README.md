@@ -1,5 +1,7 @@
 # The Coffee House
 
+![screenshot of the coffeehouse client](https://raw.githubusercontent.com/caffeinery/coffeehouse/master/screenshot.png)
+
 The Coffee House is a IRC client that intends to be quick and easy to use, while being online. **"This sounds a lot like IRCCloud!"**, I hear you say. Well, while this does sound a lot like IRCCloud we intend to make an online client that enthusiasts and non-enthusiasts can really dig. Here's some features we have in mind for The Coffee House:
  - Module Support
  - Persistant Connection
