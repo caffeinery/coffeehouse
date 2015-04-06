@@ -19,9 +19,9 @@ var BACKLOG_LIMIT = 512;
 var sockets = {};
 
 io.on('connection', function (socket) {
-  socket.on('init', function (init) {
-    if (sockets[init.relayid]) {
-      var othersocket = sockets[init.relayid];
+  socket.on('init', function (relayid, init) {
+    if (sockets[relayid]) {
+      var othersocket = sockets[relayid];
       socket.coffea = othersocket.coffea;
       socket.relayid = othersocket.relayid;
       if (othersocket.joins) {
@@ -38,15 +38,29 @@ io.on('connection', function (socket) {
           socket.emit('message', err, event);
         });
       }
+      if (othersocket.motds) {
+        othersocket.motds.forEach(function (element) {
+          var err = element[0];
+          var event = element[1];
+          socket.emit('motd', err, event);
+        });
+      }
+      if (othersocket.coffeaconnections) {
+        othersocket.coffeaconnections.forEach(function (element) {
+          var err = element[0];
+          var event = element[1];
+          socket.emit('coffeaconnect', err, event);
+        });
+      }
       console.log('[' + socket.relayid + ']', 'coffea re-init');
     } else {
       socket.coffea = coffea(init);
-      socket.coffea.on('motd', function (err, event) {
+      socket.coffea.on('connect', function (err, event) {
         if (err) {
           console.error(err);
           return;
         }
-        socket.relayid = init.relayid;
+        socket.relayid = relayid;
         sockets[socket.relayid] = socket;
         console.log('[' + socket.relayid + ']', 'coffea init');
       });
@@ -54,8 +68,7 @@ io.on('connection', function (socket) {
     socket.coffea.on('join', function (err, event) {
       // save join events
       if (!socket.joins) socket.joins = [];
-      if ((event.user.network === socket.coffea.me.network) &&
-          (event.user.nick === socket.coffea.me.nick)) {
+      if (event.user.nick === socket.coffea.networked_me[event.network].nick) {
             socket.joins.push([err, event]);
       }
     });
@@ -63,8 +76,7 @@ io.on('connection', function (socket) {
       // save part events
       if (!socket.joins) socket.joins = [];
       console.log(event);
-      if ((event.user.network === socket.coffea.me.network) &&
-          (event.user.nick === socket.coffea.me.nick)) {
+      if (event.user.nick === socket.coffea.networked_me[event.network].nick) {
             socket.joins.forEach(function (element, index, object) {
               var event_ = element[1];
               console.log(event_);
@@ -75,6 +87,16 @@ io.on('connection', function (socket) {
             });
       }
     });
+    socket.coffea.on('coffeaconnect', function (err, event) {
+      // save connect events
+      if (!socket.coffeaconnections) socket.coffeaconnections = [];
+      socket.coffeaconnections.push([err, event]);
+    })
+    socket.coffea.on('motd', function (err, event) {
+      // save motd events
+      if (!socket.motds) socket.motds = [];
+      socket.motds.push([err, event]);
+    })
     socket.coffea.on('message', function (err, event) {
       // save message events
       if (!socket.messages) socket.messages = [];

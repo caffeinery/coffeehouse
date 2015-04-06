@@ -13,10 +13,6 @@ html, body {
   padding: 5px 10px;
 }
 
-#messages li:nth-child(odd) {
-  background: #eee;
-}
-
 .bufferbox .item.buffer {
   padding-left: 25px;
 }
@@ -32,6 +28,14 @@ html, body {
 
 .messagecolumn {
   margin-left: 20px;
+}
+
+.highlight {
+  background-color: #fffbe6 !important;
+}
+
+.self {
+  background-color: #eee !important;
 }
 
 .row.fullheight {
@@ -52,6 +56,31 @@ html, body {
   overflow-y: scroll;
 }
 
+.row.fullheight .column .userbox {
+    height: 100vh;
+    overflow-x: hidden;
+    overflow-y: scroll;
+}
+
+.row.fullheight .column .bufferbox {
+    height: 100vh;
+    overflow-x: hidden;
+    overflow-y: scroll;
+}
+
 .userbox .item .item {
   padding: 3px;
+}
+
+.nick {
+  opacity: 0.7;
+}
+
+small {
+  color: gray;
+}
+
+.monospaced {
+  font-family: Courier;
+  white-space: pre;
 }

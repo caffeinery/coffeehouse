@@ -1,3 +1,11 @@
+var RELAYID = 114; // this can be used as a session
+var CONFIG = [
+  {'host': 'irc.thepups.net', 'nick': 'den'},
+  {'host': 'irc.stripechat.org', 'ssl': true, 'ssl_allow_invalid': true, 'nick': 'den'}
+];
+
+/* ~~ */
+
 function parseCommand(str) {
   var args = [];
   var readingPart = false;
@@ -18,9 +26,9 @@ function parseCommand(str) {
   return args;
 }
 
-function createClient(init) {
+function createClient(relayid, init) {
   var socket = io();
-  socket.emit('init', init);
+  socket.emit('init', relayid, init);
   return {
     socket: socket,
     call: function (cmd, args) {
@@ -28,7 +36,7 @@ function createClient(init) {
     },
     on: function (name, func) {
       socket.on(name, function (err, event) {
-        event.irc = this;
+        if (event instanceof Object) event.irc = this;
         return func(err, event);
       });
     },
@@ -40,21 +48,23 @@ function createClient(init) {
 
 var client = null;
 var messages = {};
-var currentNetwork = "0";
-var currentChannel = "#test";
+var currentNetwork;
+var currentChannel;
 
 function addNetwork(network) {
-  client.call('getServerInfo', [network]);
-  var newItem = $('<a id="' + network + '_main" class="item network"><span class="name">' + network + '</span><div class="ui notification label">0</div></a>');
-  newItem.insertBefore("#menu .item.search");
-  newItem.click(function () {
-    switchChannel(network, 'main');
-  });
-  addMessage(network, 'main', {color: 'teal'}, 'Connected to network.');
+  if (!$("#menu #" + network + "_main").length) {
+    client.call('getServerInfo', [network]);
+    var newItem = $('<a id="' + network + '_main" class="item network"><span class="name">' + network + '</span><div class="ui notification label">0</div></a>');
+    newItem.insertBefore("#menu .item.search");
+    newItem.click(function () {
+      switchChannel(network, 'main');
+    });
+    addMessage(network, 'main', {color: 'teal'}, 'Connected to network.');
+  }
 }
 
 function addChannel(channel) {
-  if (!$("#menu #" + channel.network + "_main").length) addNetwork(channel.network);
+  addNetwork(channel.network);
   var newItem = $('<a id="' + channel.network + '_' + channel.name.replace('#', '_') + '" class="item buffer">' + channel.name + '<div class="ui notification label">0</div></a>');
   newItem.insertAfter("#menu #" + channel.network + "_main");
   newItem.click(function () {
@@ -67,16 +77,56 @@ function removeChannel(channel) {
   $('#' + channel.network + '_' + channel.name.replace('#', '_')).remove();
 }
 
+/* special thanks to http://stackoverflow.com/a/7123542 */
+if (!String.linkify) {
+    String.prototype.linkify = function() {
+
+        // http://, https://, ftp://
+        var urlPattern = /\b(?:https?|ftp):\/\/[a-z0-9-+&@#\/%?=~_|!:,.;]*[a-z0-9-+&@#\/%=~_|]/gim;
+
+        // www. sans http:// or https://
+        var pseudoUrlPattern = /(^|[^\/])(www\.[\S]+(\b|$))/gim;
+
+        // Email addresses
+        var emailAddressPattern = /[\w.]+@[a-zA-Z_-]+?(?:\.[a-zA-Z]{2,6})+/gim;
+
+        return this
+            .replace(urlPattern, '<a href="$&" target="_blank">$&</a>')
+            .replace(pseudoUrlPattern, '$1<a href="http://$2" target="_blank">$2</a>')
+            .replace(emailAddressPattern, '<a href="mailto:$&">$&</a>');
+    };
+}
+
+var stringToColor = function(str) {
+    // str to hash
+    for (var i = 0, hash = 0; i < str.length; hash = str.charCodeAt(i++) + ((hash << 5) - hash));
+
+    // int/hash to hex
+    for (var i = 0, colour = "#"; i < 3; colour += ("00" + ((hash >> i++ * 8) & 0xFF).toString(16)).slice(-2));
+
+    return colour;
+};
+
 function refreshMessages() {
+  refreshMe();
   var msgs = messages[currentNetwork][currentChannel];
   var htmlMessages = $('#messages');
   htmlMessages.empty();
   msgs.forEach(function (msg) {
     if (typeof msg[0] === 'object') {
       // this is a system message
-      htmlMessages.append($('<div class="ui ' + msg[0].color + ' message">' + msg[1] + '</div>'))
+      if (!msg[0].class) msg[0].class = '';
+      htmlMessages.append($('<div class="ui ' + msg[0].color + ' ' + msg[0].class + ' message">' + msg[1] + '</div>'))
     } else {
-      htmlMessages.append($('<li>').text(msg[0] + ': ' + msg[1]));
+      var append = "";
+      if (client.me) {
+        if (msg[0] === client.me.nick) {
+          append = ' class="self"';
+        } else if (msg[1].indexOf(client.me.nick) > -1) {
+          append = ' class="highlight"';
+        }
+      }
+      htmlMessages.append($('<li' + append + '>').html('<div class="ui black nick horizontal label" style="background-color: ' + stringToColor(msg[0]) + ' !important; border-color: ' + stringToColor(msg[0]) + ' !important;">' + msg[0] + '</div> ' + msg[1].linkify()));
     }
   });
   $('.messagebox').scrollTop($('.messagebox')[0].scrollHeight);
@@ -179,6 +229,10 @@ function adjustHeight() {
   $('.messagebox').height($(window).height() - 100);
 }
 
+function refreshMe(network) {
+  client.call('getMe', [network]);
+}
+
 $(window).resize(function () {
   adjustHeight();
 });
@@ -188,12 +242,25 @@ $(document).ready(function () {
 
   $('.notification').hide();
 
-  client = createClient({'relayid': 114, 'host': 'irc.thepups.net'});
+  client = createClient(RELAYID, CONFIG);
 
   $('#inbox_main').click(function () {
     switchChannel('inbox', 'main');
   });
   addMessage('inbox', 'main', {color: 'teal'}, 'Welcome to the coffeehouse irc client!');
+
+  switchChannel('inbox', 'main');
+
+  client.on('coffeaconnect', function (err, event) {
+    addNetwork(event.network);
+  });
+
+  client.on('motd', function (err, event) {
+    if (event.motd) {
+      var motd = event.motd.join("<br />");
+      addMessage(event.network, 'main', {color: 'gray', class: 'monospaced'}, motd);
+    }
+  });
 
   client.on('message', function (err, event) {
     addMessage(event.channel.network, event.channel.name, event.user.nick, event.message);
@@ -202,7 +269,10 @@ $(document).ready(function () {
 
   client.on('join', function (err, event) {
     addChannel(event.channel);
-    addMessage(event.channel.network, event.channel.name, {color: 'teal'}, 'Joined channel.');
+    addMessage(event.channel.network, event.channel.name, {color: 'teal'},
+      'Joined ' + event.channel.name + ': ' + event.channel.topic.topic +
+      ' (topic set ' + event.channel.topic.time + ' by ' + event.channel.topic.user.nick + ')'
+    );
     switchChannel(event.channel.network, event.channel.name);
   });
 
@@ -213,10 +283,12 @@ $(document).ready(function () {
   client.on('nick', function (err, event) {
     addMessage(event.network, currentChannel, {color: 'green'}, event.oldNick + ' is now known as ' + event.user.nick);
     refreshMessages();
+    refreshUserlist();
   });
 
   client.on('names', function (err, event) {
     var names = {};
+    var all_nicks = [];
     for (var name in event.names) {
       if (event.names.hasOwnProperty(name)) {
         var data = event.names[name];
@@ -228,13 +300,23 @@ $(document).ready(function () {
           if (!names[""]) names[""] = [];
           names[""].push(name);
         }
+        all_nicks.push(name);
       }
     }
+
+    $("#m").tabcomplete(all_nicks, {
+      after: ': '
+    });
+
     renderUserlist(names);
   });
 
+  client.on('getme', function (err, event) {
+    client.me = event.me;
+  });
+
   function isInt(value) {
-    return !isNaN(value) && (function(x) { return (x | 0) === x; })(parseFloat(value))
+    return !isNaN(value) && (function(x) { return (x | 0) === x; })(parseFloat(value));
   }
 
   client.on('serverinfo', function (err, event) {
@@ -248,6 +330,7 @@ $(document).ready(function () {
       var msg = m.val();
       if (msg.charAt(0) === '/') {
         var args = parseCommand(msg.substring(1), true);
+        args.push(currentNetwork); // FIXME: this could be buggy
         client.call(args.shift(), args);
       } else {
         client.call('send', [currentChannel, msg, currentNetwork]);
