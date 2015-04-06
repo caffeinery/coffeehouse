@@ -1,10 +1,13 @@
-var app = require('express')();
+var express = require('express');
+var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 var coffea = require('coffea');
 
+app.use(express.static(__dirname + '/public'));
+
 app.get('/', function (req, res){
-  res.sendFile('index.html', {"root": __dirname});
+  res.sendFile('index.html', {"root": __dirname + '/public'});
 });
 
 http.listen(3000, function (){
