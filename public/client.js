@@ -50,10 +50,15 @@ function addChannel(channel) {
   });
 }
 
+function removeChannel(channel) {
+  delete messages[channel.network][channel.name];
+  $('#' + channel.network + '_' + channel.name.replace('#', '_')).remove();
+}
+
 function refreshMessages() {
   var msgs = messages[currentNetwork][currentChannel];
   var htmlMessages = $('#messages');
-  htmlMessages.html('');
+  htmlMessages.empty();
   msgs.forEach(function (msg) {
     if (typeof msg[0] === 'object') {
       // this is a system message
@@ -102,6 +107,10 @@ $(document).ready(function () {
     addChannel(event.channel);
     addMessage(event.channel.network, event.channel.name, {color: 'teal'}, 'Joined channel.');
     switchChannel(event.channel.network, event.channel.name);
+  });
+
+  client.on('part', function (err, event) {
+    removeChannel(event.channel);
   });
 
   $('#m').keyup(function (e) {

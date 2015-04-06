@@ -2,7 +2,7 @@ var express = require('express');
 var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
-var coffea = require('coffea');
+var coffea = require('../coffea/index');
 
 app.use(express.static(__dirname + '/public'));
 
@@ -14,6 +14,8 @@ http.listen(3000, function (){
   console.log('listening on *:3000');
 });
 
+var BACKLOG_LIMIT = 512;
+
 var sockets = {};
 
 io.on('connection', function (socket) {
@@ -22,6 +24,20 @@ io.on('connection', function (socket) {
       var othersocket = sockets[init.relayid];
       socket.coffea = othersocket.coffea;
       socket.relayid = othersocket.relayid;
+      if (othersocket.joins) {
+        othersocket.joins.forEach(function (element) {
+          var err = element[0];
+          var event = element[1];
+          socket.emit('join', err, event);
+        });
+      }
+      if (othersocket.messages) {
+        othersocket.messages.forEach(function (element) {
+          var err = element[0];
+          var event = element[1];
+          socket.emit('message', err, event);
+        });
+      }
       console.log('[' + socket.relayid + ']', 'coffea re-init');
     } else {
       socket.coffea = coffea(init);
@@ -35,13 +51,45 @@ io.on('connection', function (socket) {
         console.log('[' + socket.relayid + ']', 'coffea init');
       });
     }
+    socket.coffea.on('join', function (err, event) {
+      // save join events
+      if (!socket.joins) socket.joins = [];
+      if ((event.user.network === socket.coffea.me.network) &&
+          (event.user.nick === socket.coffea.me.nick)) {
+            socket.joins.push([err, event]);
+      }
+    });
+    socket.coffea.on('part', function (err, event) {
+      // save part events
+      if (!socket.joins) socket.joins = [];
+      console.log(event);
+      if ((event.user.network === socket.coffea.me.network) &&
+          (event.user.nick === socket.coffea.me.nick)) {
+            socket.joins.forEach(function (element, index, object) {
+              var event_ = element[1];
+              console.log(event_);
+              if ((event.channel.network === event_.channel.network) &&
+                  (event.channel.name === event_.channel.name)) {
+                    object.splice(index, 1); // remove channel from buffer
+              }
+            });
+      }
+    });
+    socket.coffea.on('message', function (err, event) {
+      // save message events
+      if (!socket.messages) socket.messages = [];
+      socket.messages.push([err, event]);
+      if (socket.messages.length >= BACKLOG_LIMIT) {
+        socket.messages.shift();
+      }
+    });
     socket.coffea.on('event', function (name, err, event) {
       event.irc = null;
+      // TODO: parse by/from/user/channel objects here
       if (event.by) event.by.client = null;
       if (event.from) event.from.client = null;
       if (event.user) event.user.client = null;
       if (event.channel) event.channel.client = null;
-      console.log(event);
       socket.emit(name, err, event);
     });
   });
