@@ -44,7 +44,8 @@ var currentNetwork = "0";
 var currentChannel = "#test";
 
 function addNetwork(network) {
-  var newItem = $('<a id="' + network + '_main" class="item network">' + network + '<div class="ui label">1</div></a>');
+  client.call('getServerInfo', [network]);
+  var newItem = $('<a id="' + network + '_main" class="item network"><span class="name">' + network + '</span><div class="ui notification label">0</div></a>');
   newItem.insertBefore("#menu .item.search");
   newItem.click(function () {
     switchChannel(network, 'main');
@@ -54,7 +55,7 @@ function addNetwork(network) {
 
 function addChannel(channel) {
   if (!$("#menu #" + channel.network + "_main").length) addNetwork(channel.network);
-  var newItem = $('<a id="' + channel.network + '_' + channel.name.replace('#', '_') + '" class="item buffer">' + channel.name + '<div class="ui label">1</div></a>');
+  var newItem = $('<a id="' + channel.network + '_' + channel.name.replace('#', '_') + '" class="item buffer">' + channel.name + '<div class="ui notification label">0</div></a>');
   newItem.insertAfter("#menu #" + channel.network + "_main");
   newItem.click(function () {
     switchChannel(channel.network, channel.name);
@@ -85,6 +86,7 @@ function addMessage(network, channel, nick, message) {
   if (!messages[network]) messages[network] = {};
   if (!messages[network][channel]) messages[network][channel] = [];
   messages[network][channel].push([nick, message]);
+  if (!((network === currentNetwork) && (channel === currentChannel))) increaseLabel(network, channel);
 }
 
 function activateItem(item) {
@@ -100,6 +102,7 @@ function deactivateItem(item) {
 }
 
 function switchChannel(network, channel) {
+  setLabel(network, channel); // remove label
   currentNetwork = network;
   currentChannel = channel;
   deactivateItem($('.bufferbox .item'));
@@ -148,6 +151,26 @@ function renderUserlist(names) {
   });
 }
 
+function setLabel(network, channel, number) {
+  var select = $('#' + network + '_' + channel.replace('#', '_') + ' .label');
+  if ((!number) || (number === 0)) {
+    select.hide();
+    select.html(0);
+  } else {
+    select.show();
+    select.html(number);
+  }
+  return true;
+}
+
+function getLabel(network, channel) {
+  return parseInt($('#' + network + '_' + channel.replace('#', '_') + ' .label').html());
+}
+
+function increaseLabel(network, channel) {
+  return setLabel(network, channel, getLabel(network, channel) + 1);
+}
+
 function refreshUserlist() {
   client.call('names', [currentChannel, currentNetwork]);
 }
@@ -162,7 +185,15 @@ $(window).resize(function () {
 
 $(document).ready(function () {
   adjustHeight();
+
+  $('.notification').hide();
+
   client = createClient({'relayid': 114, 'host': 'irc.thepups.net'});
+
+  $('#inbox_main').click(function () {
+    switchChannel('inbox', 'main');
+  });
+  addMessage('inbox', 'main', {color: 'teal'}, 'Welcome to the coffeehouse irc client!');
 
   client.on('message', function (err, event) {
     addMessage(event.channel.network, event.channel.name, event.user.nick, event.message);
@@ -200,6 +231,15 @@ $(document).ready(function () {
       }
     }
     renderUserlist(names);
+  });
+
+  function isInt(value) {
+    return !isNaN(value) && (function(x) { return (x | 0) === x; })(parseFloat(value))
+  }
+
+  client.on('serverinfo', function (err, event) {
+    var net = $('#' + event.network + '_main .name');
+    if (isInt(net.html())) net.html(event.info.servername); // use servername instead of number
   });
 
   var m = $('#m');
