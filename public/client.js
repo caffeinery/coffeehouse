@@ -334,6 +334,8 @@ $(document).ready(function () {
         client.call(args.shift(), args);
       } else {
         client.call('send', [currentChannel, msg, currentNetwork]);
+          addMessage(currentNetwork, currentChannel, client.me.nick, msg);
+          refreshMessages();
       }
       m.val('');
       return false;
